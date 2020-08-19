@@ -1,0 +1,1 @@
+-l"./sonarcfg.cmd" "./config_AIC23.obj" "./sonar.obj" "./sonarcfg.obj" "./sonarcfg_c.obj" "../myLinkerCmd.cmd" -l"libc.a" -lrts6700.lib -ldsp67x.lib -lcsl6713.lib -ldsk6713bsl.lib 
