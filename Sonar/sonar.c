@@ -286,7 +286,7 @@ void frequency_sweep_init(void)			// Initialisation of then sent signal
 		}
 		else if(k>= SWEEP_LEN/2)
 		{
-			Buffer_out[k] = Buffer_out[SWEEP_LEN-k];
+			Buffer_out[k] = Buffer_out[SWEEP_LEN-k-1];
 		}
 	}
 }
