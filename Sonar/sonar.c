@@ -63,7 +63,7 @@ float response_freq[FFT_LEN]={0};
 #pragma DATA_SECTION(cross_corr_freq, ".processbuffer");	//sweep_freq_fft x response_freq_fft
 float cross_corr_freq[FFT_LEN]={0};
 
-
+float meas;
 
 /*######### CONFIGURATION FUNCTIONS #########*/
 
@@ -204,6 +204,7 @@ void config_EDMA(void)
 	hEdmaRcv = EDMA_open(EDMA_CHA_REVT1, EDMA_OPEN_RESET);  // EDMA Channel for REVT1
 
 	configEDMARcv.src = MCBSP_getRcvAddr(hMcbsp);          //  source addr
+	configEDMARcv.dst = (Uint32)Buffer_in;
 
 	tccRcv = EDMA_intAlloc(-1);                        // next available TCC
 	configEDMARcv.opt |= EDMA_FMK(OPT,TCC,tccRcv);     // set it
@@ -218,6 +219,7 @@ void config_EDMA(void)
 
 	hEdmaXmt = EDMA_open(EDMA_CHA_XEVT1, EDMA_OPEN_RESET);  // EDMA Channel for XEVT1
 
+	configEDMAXmt.src = (Uint32)Buffer_out;
 	configEDMAXmt.dst = MCBSP_getXmtAddr(hMcbsp);		 // destination addr
 
 	tccXmt = EDMA_intAlloc(-1);                        // next available TCC
@@ -267,7 +269,7 @@ void frequency_sweep_init(void)			// Initialisation of then sent signal
 	value[1]=2*cos(2*PI*1006.25/48000)*sin(2*PI*1006.25/48000);
 	for(k=0;k<SWEEP_LEN;k++)
 	{
-		if(k>1)
+		if(k>1 && k< SWEEP_LEN/2)
 		{
 			omega = 2*PI*(1000+k*6.25)/48000;
 			factor = sin(omega)/sqrt(value[1]*value[1]+value[0]*value[0]-2*value[0]*value[1]*cos(omega));
@@ -277,10 +279,14 @@ void frequency_sweep_init(void)			// Initialisation of then sent signal
 			value[0] = value[1];
 			value[1] = value[2];
 		}
-		else
+		else if(k<2)
 		{
 			buf=25000*value[k];
 			Buffer_out[k]=(short)buf;
+		}
+		else if(k>= SWEEP_LEN/2)
+		{
+			Buffer_out[k] = Buffer_out[SWEEP_LEN-k];
 		}
 	}
 }
@@ -393,7 +399,7 @@ short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (R
 			sweep_freq[2*i] = (float)Buffer_out[i];			// fills every second value (real parts)
 		}
 
-		response_freq[2*i] = (float)Buffer_out[i];
+		response_freq[2*i] = (float)Buffer_in[i];
 	}
 
 
@@ -518,6 +524,8 @@ void process_SWI(void)
 	dist = convert_step_distance(max_index);
 
 	// Enable the channels again after processing
+	EDMA_intEnable(tccRcv);
+	EDMA_intEnable(tccXmt);
 	EDMA_enableChannel(hEdmaRcv);
 	EDMA_enableChannel(hEdmaXmt);
 }
