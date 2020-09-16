@@ -33,7 +33,7 @@
 
 #define SWEEP_LEN 2880		// 60 ms
 #define RESPONSE_LEN 4320   // 60 + 30 ms
-#define FFT_LEN 16384       // next power of 2 for the dit/dif algorithm (complex array => length = 2 x length)
+#define FFT_LEN 32768        // next power of 2 for the dit/dif algorithm (complex array => length = 2 x length)
 
 #define PI 3.14159265358979323846
 
@@ -49,10 +49,6 @@ short Buffer_out[SWEEP_LEN];
 /*######## PROCESS BUFFERS #########*/
 // all initalized with zeros so the filling is easier
 
-//buffer for cross correlation in time domain
-#pragma DATA_SECTION(sweep_time, ".processbuffer");			// freq sweep vector filled with zeros to RESPONSE_LEN
-short sweep_time[RESPONSE_LEN]={0};
-
 //buffers for cross correlation in frequency domain
 #pragma DATA_SECTION(sweep_freq, ".processbuffer");			//freq sweep vector for fft
 float sweep_freq[FFT_LEN]={0};
@@ -63,7 +59,6 @@ float response_freq[FFT_LEN]={0};
 #pragma DATA_SECTION(cross_corr_freq, ".processbuffer");	//sweep_freq_fft x response_freq_fft
 float cross_corr_freq[FFT_LEN]={0};
 
-float meas;
 
 /*######### CONFIGURATION FUNCTIONS #########*/
 
@@ -141,7 +136,7 @@ EDMA_Config configEDMARcv = {
     EDMA_FMKS(OPT, DUM, INC)           |  // Ziel-update mode
     EDMA_FMKS(OPT, TCINT,YES)         |  // EDMA interrupt erzeugen?
     EDMA_FMKS(OPT, TCC, OF(0))         |  // Transfer complete code (TCC)
-    EDMA_FMKS(OPT, LINK, YES)          |  // Link Parameter nutzen?
+    EDMA_FMKS(OPT, LINK, NO)          |  // Link Parameter nutzen?
     EDMA_FMKS(OPT, FS, NO),               // Frame Sync nutzen?
 
     EDMA_FMKS(SRC, SRC, OF(0)),           // Quell-Adresse
@@ -162,12 +157,12 @@ EDMA_Config configEDMAXmt = {
     EDMA_FMKS(OPT, PRI, LOW)          |  // auf beide Queues verteilen
     EDMA_FMKS(OPT, ESIZE, 16BIT)       |  // Element size
     EDMA_FMKS(OPT, 2DS, NO)            |  // kein 2D-Transfer
-    EDMA_FMKS(OPT, SUM, NONE)          |  // Quell-update mode -> FEST (McBSP)!!!
+    EDMA_FMKS(OPT, SUM, INC)          |  // Quell-update mode -> FEST (McBSP)!!!
     EDMA_FMKS(OPT, 2DD, NO)            |  // 2kein 2D-Transfer
-    EDMA_FMKS(OPT, DUM, INC)           |  // Ziel-update mode
+    EDMA_FMKS(OPT, DUM, NONE)           |  // Ziel-update mode
     EDMA_FMKS(OPT, TCINT,YES)         |  // EDMA interrupt erzeugen?
     EDMA_FMKS(OPT, TCC, OF(0))         |  // Transfer complete code (TCC)
-    EDMA_FMKS(OPT, LINK, YES)          |  // Link Parameter nutzen?
+    EDMA_FMKS(OPT, LINK, NO)          |  // Link Parameter nutzen?
     EDMA_FMKS(OPT, FS, NO),               // Frame Sync nutzen?
 
     (Uint32)Buffer_out,           // Quell-Adresse
@@ -196,36 +191,10 @@ EDMA_Handle hEdmaXmt;
 MCBSP_Handle hMcbsp;
 
 
-void config_EDMA(void)
+void Edma_enable(void)
 {
-	/*############ RECIEVE #############*/
-			  /* ADC => CPU */
-
-	hEdmaRcv = EDMA_open(EDMA_CHA_REVT1, EDMA_OPEN_RESET);  // EDMA Channel for REVT1
-
-	configEDMARcv.src = MCBSP_getRcvAddr(hMcbsp);          //  source addr
-	configEDMARcv.dst = (Uint32)Buffer_in;
-
-	tccRcv = EDMA_intAlloc(-1);                        // next available TCC
-	configEDMARcv.opt |= EDMA_FMK(OPT,TCC,tccRcv);     // set it
-
 	/* configure */
 	EDMA_config(hEdmaRcv, &configEDMARcv);
-
-
-
-	/*############ TRANSMIT #############*/
-			   /* CPU => DAC */
-
-	hEdmaXmt = EDMA_open(EDMA_CHA_XEVT1, EDMA_OPEN_RESET);  // EDMA Channel for XEVT1
-
-	configEDMAXmt.src = (Uint32)Buffer_out;
-	configEDMAXmt.dst = MCBSP_getXmtAddr(hMcbsp);		 // destination addr
-
-	tccXmt = EDMA_intAlloc(-1);                        // next available TCC
-	configEDMAXmt.opt |= EDMA_FMK(OPT,TCC,tccXmt);     // set it
-
-	/* configure */
 	EDMA_config(hEdmaXmt, &configEDMAXmt);
 
 
@@ -240,6 +209,37 @@ void config_EDMA(void)
 	EDMA_enableChannel(hEdmaRcv);
 	EDMA_enableChannel(hEdmaXmt);
 }
+
+void config_EDMA(void)
+{
+	/*############ RECIEVE #############*/
+			  /* ADC => CPU */
+
+	hEdmaRcv = EDMA_open(EDMA_CHA_REVT1, EDMA_OPEN_RESET);  // EDMA Channel for REVT1
+
+	configEDMARcv.src = MCBSP_getRcvAddr(hMcbsp);          //  source addr
+	configEDMARcv.dst = (Uint32)Buffer_in;
+
+	tccRcv = EDMA_intAlloc(-1);                        // next available TCC
+	configEDMARcv.opt |= EDMA_FMK(OPT,TCC,tccRcv);     // set it
+
+
+
+	/*############ TRANSMIT #############*/
+			   /* CPU => DAC */
+
+	hEdmaXmt = EDMA_open(EDMA_CHA_XEVT1, EDMA_OPEN_RESET);  // EDMA Channel for XEVT1
+
+	configEDMAXmt.src = (Uint32)Buffer_out;
+	configEDMAXmt.dst = MCBSP_getXmtAddr(hMcbsp);		 // destination addr
+
+	tccXmt = EDMA_intAlloc(-1);                        // next available TCC
+	configEDMAXmt.opt |= EDMA_FMK(OPT,TCC,tccXmt);     // set it
+
+	Edma_enable();
+}
+
+
 
 void config_interrupts(void)
 {
@@ -303,28 +303,19 @@ float convert_step_distance(short step) // array index => distance
 
 short cross_correlation_time()  		// Cross correlation algorithm (time domain), double for-loop
 {
-	short k,m,r_new,r_max,i;
+	short k,m,r_new,r_max;
 	short max_index = 0;
-
-	// Bring the freq sweep signal to the same length as the response signal
-	for(i=0;i<SWEEP_LEN;i++)
-	{
-		sweep_time[i]=Buffer_out[i];	// Rest of the array initialized with zeros
-	}
 
 	r_max=0; 							// to compare
 
-	for(k=-4319;k<4320;k++)				// For explanations see "cross_correlation.html"
+	for(k=0;k<SWEEP_LEN;k++)				// For explanations see "cross_correlation.html"
 	{
 		r_new=0;
 
 		/*--------- Cross correlation ----------*/
-		for(m=0;m<4320;m++)
+		for(m=k;m<RESPONSE_LEN;m++)
 		{
-			if( ((m-k)<4320) && ((m-k)>=0) ) // Stay in the limits of the array
-			{
-				r_new = r_new + sweep_time[m]*Buffer_in[m-k];  // Cross correlation formula
-			}
+			r_new = r_new + Buffer_out[m-k]*Buffer_in[m];  // Cross correlation formula
 		}
 
 		/*-------- Keeping the maximum ---------*/
@@ -417,9 +408,14 @@ short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (R
 
 	/*---------- Multiply ----------*/
 
-	for(j=0;j<FFT_LEN;j++)									// floating point so no need to worry
+	for(j=0;j<FFT_LEN;j=j+2)									// floating point so no need to worry
 	{														// about numbers oustide of the type limits.
-		cross_corr_freq[j]=sweep_freq[j]*response_freq[j];	// Result is cross correlation in frequency domain
+		//cross_corr_freq[j]=sweep_freq[j]*response_freq[j];	// Result is cross correlation in frequency domain
+
+		cross_corr_freq[j] = sweep_freq[j]*response_freq[j] - sweep_freq[j+1]*response_freq[j+1];
+		cross_corr_freq[j+1] = sweep_freq[j+1]*response_freq[j]+sweep_freq[j]*response_freq[j+1];
+
+
 	}
 
 
@@ -522,12 +518,10 @@ void process_SWI(void)
 #endif /* SWITCH */
 
 	dist = convert_step_distance(max_index);
+	printf("distance : %f",dist);
 
 	// Enable the channels again after processing
-	EDMA_intEnable(tccRcv);
-	EDMA_intEnable(tccXmt);
-	EDMA_enableChannel(hEdmaRcv);
-	EDMA_enableChannel(hEdmaXmt);
+	Edma_enable();
 }
 
 
