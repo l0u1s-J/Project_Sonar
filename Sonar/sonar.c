@@ -20,8 +20,8 @@
 #include "config_AIC23.h"
 #include "sonar.h"
 #include "sonarcfg.h"
-#include <DSPF_sp_cfftr2_dit.h>
-#include <DSPF_sp_icfftr2_dif.h>
+//#include <DSPF_sp_cfftr2_dit.h>
+//#include <DSPF_sp_icfftr2_dif.h>
 
 
 /*****************************************************************/
@@ -40,9 +40,9 @@
 /*########## DATA BUFFERS ##########*/
 /* no ping pong buffers needed (calculation made offline)  => only 1 buffer for input and 1 for output */
 
-#pragma DATA_SECTION(Buffer_in, ".databuffer");
+#pragma DATA_SECTION(Buffer_in, ".processbuffer");
 short Buffer_in[RESPONSE_LEN];
-#pragma DATA_SECTION(Buffer_out, ".databuffer");
+#pragma DATA_SECTION(Buffer_out, ".processbuffer");
 short Buffer_out[SWEEP_LEN];
 /* Memory "Buffers" set to adequate length ( 0x1C200 )*/
 
@@ -59,7 +59,7 @@ float response_freq[FFT_LEN]={0};
 #pragma DATA_SECTION(cross_corr_freq, ".processbuffer");	//sweep_freq_fft x response_freq_fft
 float cross_corr_freq[FFT_LEN]={0};
 
-
+float result;
 /*######### CONFIGURATION FUNCTIONS #########*/
 
 //Configuration for McBSP1 (data-interface)
@@ -68,40 +68,40 @@ MCBSP_Config datainterface_config = {
         MCBSP_FMKS(SPCR, FREE, NO)              |	//  Freilauf
         MCBSP_FMKS(SPCR, SOFT, NO)          |
         MCBSP_FMKS(SPCR, FRST, YES)             |	// Framesync ist ein
-        MCBSP_FMKS(SPCR, GRST, YES)             |	// Reset aus, damit läuft der Samplerate- Generator
+        MCBSP_FMKS(SPCR, GRST, YES)             |	// Reset aus, damit lÃ¤uft der Samplerate- Generator
         MCBSP_FMKS(SPCR, XINTM, OF(0))          |
-        MCBSP_FMKS(SPCR, XSYNCERR, NO)          |	// empfängerseitig keine Überwachung der Synchronisation
-        MCBSP_FMKS(SPCR, XRST, YES)             |	// Sender läuft (kein Reset- Status)	
+        MCBSP_FMKS(SPCR, XSYNCERR, NO)          |	// empfÃ¤ngerseitig keine Ãœberwachung der Synchronisation
+        MCBSP_FMKS(SPCR, XRST, YES)             |	// Sender lÃ¤uft (kein Reset- Status)
         MCBSP_FMKS(SPCR, DLB, OFF)              |	// Loopback (Kurschluss) nicht aktiv
-        MCBSP_FMKS(SPCR, RJUST, RZF)            |	// rechtsbündige Ausrichtung der Daten im Puffer
-        MCBSP_FMKS(SPCR, CLKSTP, DISABLE)       |	// Clock startet ohne Verzögerung auf fallenden Flanke (siehe auch PCR-Register)
+        MCBSP_FMKS(SPCR, RJUST, RZF)            |	// rechtsbÃ¼ndige Ausrichtung der Daten im Puffer
+        MCBSP_FMKS(SPCR, CLKSTP, DISABLE)       |	// Clock startet ohne VerzÃ¶gerung auf fallenden Flanke (siehe auch PCR-Register)
         MCBSP_FMKS(SPCR, DXENA, OFF)            |	// DX- Enabler wird nicht verwendet
-        MCBSP_FMKS(SPCR, RINTM, RRDY)           |	// Sender Interrupt wird durch "RRDY-Bit" ausgelöst
-        MCBSP_FMKS(SPCR, RSYNCERR, NO)          |	// senderseitig keine Überwachung der Synchronisation
-        MCBSP_FMKS(SPCR, RRST, YES),			// Empfänger läuft (kein Reset- Status)
+        MCBSP_FMKS(SPCR, RINTM, RRDY)           |	// Sender Interrupt wird durch "RRDY-Bit" ausgelÃ¶st
+        MCBSP_FMKS(SPCR, RSYNCERR, NO)          |	// senderseitig keine Ãœberwachung der Synchronisation
+        MCBSP_FMKS(SPCR, RRST, YES),			// EmpfÃ¤nger lÃ¤uft (kein Reset- Status)
 		/* Empfangs-Control Register */
         MCBSP_FMKS(RCR, RPHASE, SINGLE)         |	// Nur eine Phase pro Frame
-        MCBSP_FMKS(RCR, RFRLEN2, DEFAULT)       |	// Länge in Phase 2, unrelevant
-        MCBSP_FMKS(RCR, RWDLEN2, DEFAULT)       |	// Wortlänge in Phase 2, unrelevant
+        MCBSP_FMKS(RCR, RFRLEN2, DEFAULT)       |	// LÃ¤nge in Phase 2, unrelevant
+        MCBSP_FMKS(RCR, RWDLEN2, DEFAULT)       |	// WortlÃ¤nge in Phase 2, unrelevant
         MCBSP_FMKS(RCR, RCOMPAND, MSB)          |	// kein Compandierung der Daten (MSB first)
-        MCBSP_FMKS(RCR, RFIG, NO)               |	// Rahmensynchronisationspulse (nach dem ersten Puls)) startet die Übertragung neu
-        MCBSP_FMKS(RCR, RDATDLY, 0BIT)          |	// keine Verzögerung (delay) der Daten
-        MCBSP_FMKS(RCR, RFRLEN1, OF(1))         |	// Länge der Phase 1 --> 1 Wort
+        MCBSP_FMKS(RCR, RFIG, NO)               |	// Rahmensynchronisationspulse (nach dem ersten Puls)) startet die Ãœbertragung neu
+        MCBSP_FMKS(RCR, RDATDLY, 0BIT)          |	// keine VerzÃ¶gerung (delay) der Daten
+        MCBSP_FMKS(RCR, RFRLEN1, OF(1))         |	// LÃ¤nge der Phase 1 --> 1 Wort
         MCBSP_FMKS(RCR, RWDLEN1, 16BIT)         |	//
         MCBSP_FMKS(RCR, RWDREVRS, DISABLE),		// 32-bit Reversal nicht genutzt
 		/* Sende-Control Register */
         MCBSP_FMKS(XCR, XPHASE, SINGLE)         |	//
-        MCBSP_FMKS(XCR, XFRLEN2, DEFAULT)       |	// Länge in Phase 2, unrelevant
-        MCBSP_FMKS(XCR, XWDLEN2, DEFAULT)       |	// Wortlänge in Phase 2, unrelevant
+        MCBSP_FMKS(XCR, XFRLEN2, DEFAULT)       |	// LÃ¤nge in Phase 2, unrelevant
+        MCBSP_FMKS(XCR, XWDLEN2, DEFAULT)       |	// WortlÃ¤nge in Phase 2, unrelevant
         MCBSP_FMKS(XCR, XCOMPAND, MSB)          |	// kein Compandierung der Daten (MSB first)
-        MCBSP_FMKS(XCR, XFIG, NO)               |	// Rahmensynchronisationspulse (nach dem ersten Puls)) startet die Übertragung neu
-        MCBSP_FMKS(XCR, XDATDLY, 0BIT)          |	// keine Verzögerung (delay) der Daten
-        MCBSP_FMKS(XCR, XFRLEN1, OF(1))         |	// Länge der Phase 1 --> 1 Wort
-        MCBSP_FMKS(XCR, XWDLEN1, 16BIT)         |	// Wortlänge in Phase 1 --> 16 bit
+        MCBSP_FMKS(XCR, XFIG, NO)               |	// Rahmensynchronisationspulse (nach dem ersten Puls)) startet die Ãœbertragung neu
+        MCBSP_FMKS(XCR, XDATDLY, 0BIT)          |	// keine VerzÃ¶gerung (delay) der Daten
+        MCBSP_FMKS(XCR, XFRLEN1, OF(1))         |	// LÃ¤nge der Phase 1 --> 1 Wort
+        MCBSP_FMKS(XCR, XWDLEN1, 16BIT)         |	// WortlÃ¤nge in Phase 1 --> 16 bit
         MCBSP_FMKS(XCR, XWDREVRS, DISABLE),		// 32-bit Reversal nicht genutzt
 		/* Sample Rate Generator Register */
         MCBSP_FMKS(SRGR, GSYNC, DEFAULT)        |	// Einstellungen nicht relevant da
-        MCBSP_FMKS(SRGR, CLKSP, DEFAULT)        |	// der McBSP1 als Slave läuft
+        MCBSP_FMKS(SRGR, CLKSP, DEFAULT)        |	// der McBSP1 als Slave lÃ¤uft
         MCBSP_FMKS(SRGR, CLKSM, DEFAULT)        |	// und den Takt von aussen 
         MCBSP_FMKS(SRGR, FSGM, DEFAULT)         |	// vorgegeben bekommt.
         MCBSP_FMKS(SRGR, FPER, DEFAULT)         |	// --
@@ -112,18 +112,18 @@ MCBSP_Config datainterface_config = {
         MCBSP_RCER_DEFAULT,				// dito
         MCBSP_XCER_DEFAULT,				// dito
 		/* Pinout Control Register */
-        MCBSP_FMKS(PCR, XIOEN, SP)              |	// Pin wird für serielle Schnittstelle verwendet (alternativ GPIO)
-        MCBSP_FMKS(PCR, RIOEN, SP)              |	// Pin wird für serielle Schnittstelle verwendet (alternativ GPIO)
-        MCBSP_FMKS(PCR, FSXM, EXTERNAL)         |	// Framesync- Signal für Sender kommt von extern (Slave)
-        MCBSP_FMKS(PCR, FSRM, EXTERNAL)         |	// Framesync- Signal für Empfänger kommt von extern (Slave)
-        MCBSP_FMKS(PCR, CLKXM, INPUT)           |	// Takt für Sender kommt von extern (Slave)
-        MCBSP_FMKS(PCR, CLKRM, INPUT)           |	// Takt für Empfänger kommt von extern (Slave)
+        MCBSP_FMKS(PCR, XIOEN, SP)              |	// Pin wird fÃ¼r serielle Schnittstelle verwendet (alternativ GPIO)
+        MCBSP_FMKS(PCR, RIOEN, SP)              |	// Pin wird fÃ¼r serielle Schnittstelle verwendet (alternativ GPIO)
+        MCBSP_FMKS(PCR, FSXM, EXTERNAL)         |	// Framesync- Signal fÃ¼r Sender kommt von extern (Slave)
+        MCBSP_FMKS(PCR, FSRM, EXTERNAL)         |	// Framesync- Signal fÃ¼r EmpfÃ¤nger kommt von extern (Slave)
+        MCBSP_FMKS(PCR, CLKXM, INPUT)           |	// Takt fÃ¼r Sender kommt von extern (Slave)
+        MCBSP_FMKS(PCR, CLKRM, INPUT)           |	// Takt fÃ¼r EmpfÃ¤nger kommt von extern (Slave)
         MCBSP_FMKS(PCR, CLKSSTAT, DEFAULT)      |	// unrelevant da PINS keine GPIOs
         MCBSP_FMKS(PCR, DXSTAT, DEFAULT)        |	// unrelevant da PINS keine GPIOs
         MCBSP_FMKS(PCR, FSXP, ACTIVEHIGH)       |	// Framesync senderseitig ist "activehigh"
-        MCBSP_FMKS(PCR, FSRP, ACTIVEHIGH)       |	// Framesync empfängerseitig ist "activehigh"
+        MCBSP_FMKS(PCR, FSRP, ACTIVEHIGH)       |	// Framesync empfÃ¤ngerseitig ist "activehigh"
         MCBSP_FMKS(PCR, CLKXP, FALLING)         |	// Datum wird bei fallender Flanke gesendet
-        MCBSP_FMKS(PCR, CLKRP, RISING)			// Datum wird bei steigender Flanke übernommen
+        MCBSP_FMKS(PCR, CLKRP, RISING)			// Datum wird bei steigender Flanke Ã¼bernommen
 };
 
 /* template for a EDMA configuration */
@@ -372,10 +372,77 @@ void bit_rev(float* x, int n)             //bit reverse a vector for the fft
 }
 
 
+void cfftr2_dit(float* x, float* w, short n)
+     {
+         short n2, ie, ia, i, j, k, m;
+         float rtemp, itemp, c, s;
+
+         n2 = n;
+         ie = 1;
+
+         for(k=n; k > 1; k >>= 1)
+         {
+            n2 >>= 1;
+            ia = 0;
+            for(j=0; j < ie; j++)
+            {
+               c = w[2*j];
+               s = w[2*j+1];
+               for(i=0; i < n2; i++)
+               {
+                  m = ia + n2;
+                  rtemp     = c * x[2*m]   + s * x[2*m+1];
+                  itemp     = c * x[2*m+1] - s * x[2*m];
+                  x[2*m]    = x[2*ia]   - rtemp;
+                  x[2*m+1]  = x[2*ia+1] - itemp;
+                  x[2*ia]   = x[2*ia]   + rtemp;
+                  x[2*ia+1] = x[2*ia+1] + itemp;
+                  ia++;
+               }
+               ia += n2;
+            }
+            ie <<= 1;
+         }
+      }
+
+void icfftr2_dif(float* x, float* w, short n)
+           {
+               short n2, ie, ia, i, j, k, m;
+               float rtemp, itemp, c, s;
+
+               n2 = 1;
+               ie = n;
+               for(k=n; k > 1; k >>= 1)
+               {
+                   ie >>= 1;
+                   ia = 0;
+                   for(j=0; j < ie; j++)
+                   {
+                       c = w[2*j];
+                       s = w[2*j+1];
+                       for(i=0; i < n2; i++)
+                       {
+                           m = ia + n2;
+                           rtemp     = x[2*ia]   - x[2*m];
+                           x[2*ia]   = x[2*ia]   + x[2*m];
+                           itemp     = x[2*ia+1] - x[2*m+1];
+                           x[2*ia+1] = x[2*ia+1] + x[2*m+1];
+                           x[2*m]    = c*rtemp   - s*itemp;
+                           x[2*m+1]  = c*itemp   + s*rtemp;
+                           ia++;
+                       }
+                       ia += n2;
+                   }
+                   n2 <<= 1;
+               }
+           }
+
+
 short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (Radix 2)	from the DSPlib
 {										// max = max[ IFFT( FFT(sweep) x FFT(response) ) ]
 										// FFT function needs complex array at input
-	short max_index,i,j,k;
+	short max_index,k;
+	int i, j;
 	float max_value;
 
 
@@ -388,9 +455,11 @@ short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (R
 		if(i < SWEEP_LEN)
 		{
 			sweep_freq[2*i] = (float)Buffer_out[i];			// fills every second value (real parts)
+			sweep_freq[2*i+1]=0;
 		}
 
 		response_freq[2*i] = (float)Buffer_in[i];
+		response_freq[2*i+1]=0;
 	}
 
 
@@ -401,8 +470,8 @@ short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (R
 	tw_genr2fft(fft_coeff, N);	   							//generates coefficient table for fft
 	bit_rev(fft_coeff,N>>1);   								//bit reverse the vector (right format for fft dit)
 
-	DSPF_sp_cfftr2_dit(sweep_freq,fft_coeff,N);				//FFT of sweep signal
-	DSPF_sp_cfftr2_dit(response_freq,fft_coeff,N);			//FFT of response signal
+	cfftr2_dit(sweep_freq,fft_coeff,N);				//FFT of sweep signal
+	cfftr2_dit(response_freq,fft_coeff,N);			//FFT of response signal
 															//both signal are bit reversed (complex)
 
 
@@ -421,7 +490,7 @@ short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (R
 
 	/*------------ IFFT ------------*/
 	/*DSPF_sp_icfftr2_dif (float* x, float* w, short n)*/
-	DSPF_sp_icfftr2_dif(cross_corr_freq,fft_coeff,N);		//Input bit reversed, output normal (complex)
+	icfftr2_dif(cross_corr_freq,fft_coeff,N);		//Input bit reversed, output normal (complex)
 
 
 	/*---- Finding the maximum ----*/
@@ -468,6 +537,7 @@ main()
     config_interrupts();
 
     MCBSP_start(hMcbsp, MCBSP_RCV_START | MCBSP_XMIT_START, 0xffffffff);
+    MCBSP_enableRcv(hMcbsp);
     MCBSP_write(hMcbsp, 0x0); 	/* one shot */
 
 } /* finished*/
@@ -518,7 +588,8 @@ void process_SWI(void)
 #endif /* SWITCH */
 
 	dist = convert_step_distance(max_index);
-	printf("distance : %f",dist);
+	result=dist;
+	//printf("distance : %f",dist);
 
 	// Enable the channels again after processing
 	Edma_enable();
