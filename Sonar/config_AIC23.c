@@ -41,7 +41,7 @@ static unsigned short myAIC23_registers[10] = { \
 	            /* STE     0          sidetone: disabled */                      \
 	            /* DAC     1          DAC: selected */                           \
 	            /* BYP     0          bypass: off */                             \
-	            /* INSEL   0          input select for ADC: line */              \
+	            /* INSEL   0         input select for ADC: line */              \
 	            /* MICM    0          microphone mute: disabled */               \
 	            /* MICB    1          microphone boost: enabled */               \
 	                                                                             \
@@ -185,17 +185,19 @@ void Config_DSK6713_AIC23(void)
 
 
 
-static void set_aic23_register(MCBSP_Handle hMcbsp,unsigned short regnum, unsigned short regval)
+void set_aic23_register(MCBSP_Handle hMcbsp00,unsigned short regnum, unsigned short regval)
 {
 	/* Programmierung erfolgt so, dass in B[15:9] die Registernummer steht und
 		in B[8:0] die zu schreibenden Daten */
 
     /* zur Sicherheit maskieren auf 9 Bit */
     regval &= 0x1ff;
-    //regval=regval*128;
+    regnum = (regnum << 9) & 0xfe00;
+    regval = regval | regnum;
+
     /* warten */
-    while (!(MCBSP_xrdy(hMcbsp)));
+    while (!(MCBSP_xrdy(hMcbsp00)));
     
     /* schreiben */
-    MCBSP_write(hMcbsp, regval);
+    MCBSP_write(hMcbsp00, regval);
 }

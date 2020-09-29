@@ -83,6 +83,12 @@ bios.GBL.BOARDNAME = "c6713";
 bios.MEM.instance("process_mem").len = 0x00400000;
 bios.MEM.instance("process_mem").base = 0x80400000;
 bios.MEM.instance("SDRAM").len = 0x00400000;
+bios.MEM.instance("process_mem").base = 0x80200000;
+bios.MEM.instance("process_mem").len = 0x00600000;
+bios.MEM.instance("SDRAM").len = 0x00200000;
+bios.MEM.instance("Buffers").base = 0x00030000;
+bios.MEM.instance("Buffers").len = 0x00010000;
+bios.MEM.instance("IRAM").len = 0x00030000;
 // !GRAPHICAL_CONFIG_TOOL_SCRIPT_INSERT_POINT!
 
 prog.gen();

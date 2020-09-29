@@ -63,8 +63,6 @@ sonar.obj: c:/ti/bios_5_42_01_09/packages/ti/bios/include/_hook.h
 sonar.obj: c:/ti/bios_5_42_01_09/packages/ti/bios/include/log.h
 sonar.obj: c:/ti/bios_5_42_01_09/packages/ti/bios/include/_log.h
 sonar.obj: c:/ti/bios_5_42_01_09/packages/ti/bios/include/trc.h
-sonar.obj: C:/ti/DSPLIB/c6700/dsplib/include/DSPF_sp_cfftr2_dit.h
-sonar.obj: C:/ti/DSPLIB/c6700/dsplib/include/DSPF_sp_icfftr2_dif.h
 
 ../sonar.c: 
 c:/ti/ccsv6/tools/compiler/c6000_7.4.8/include/math.h: 
@@ -129,5 +127,3 @@ c:/ti/bios_5_42_01_09/packages/ti/bios/include/_hook.h:
 c:/ti/bios_5_42_01_09/packages/ti/bios/include/log.h: 
 c:/ti/bios_5_42_01_09/packages/ti/bios/include/_log.h: 
 c:/ti/bios_5_42_01_09/packages/ti/bios/include/trc.h: 
-C:/ti/DSPLIB/c6700/dsplib/include/DSPF_sp_cfftr2_dit.h: 
-C:/ti/DSPLIB/c6700/dsplib/include/DSPF_sp_icfftr2_dif.h: 

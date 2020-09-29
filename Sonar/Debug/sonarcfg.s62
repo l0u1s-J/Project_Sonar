@@ -5,7 +5,7 @@
 ;; INPUT sonar.cdb
 
 ;; CONFIGURATION/VERSION INFORMATION
-	.asg "Sat Aug 01 19:48:03 2020", VERS$DATE
+	.asg "Thu Sep 24 17:58:28 2020", VERS$DATE
 
 ;; PROLOGUE
 	.include sonarcfg.h62
@@ -516,7 +516,7 @@ HOOK$SETOF          .set 00H
 ;;
 ;; MEM_Obj SDRAM (len, iAllocHeap, iSegZero, iHeapId)
 	.global SDRAM
-	.asg 0400000H, _len
+	.asg 0200000H, _len
 	.asg 00H, _iAllocHeap
 	.asg MEM_NULL, _iSegZero
 	.asg segment_name, _iHeapId
@@ -527,7 +527,7 @@ HOOK$SETOF          .set 00H
 ;;
 ;; MEM_Obj IRAM (len, iAllocHeap, iSegZero, iHeapId)
 	.global IRAM
-	.asg 023e00H, _len
+	.asg 030000H, _len
 	.asg 00H, _iAllocHeap
 	.asg MEM_NULL, _iSegZero
 	.asg segment_name, _iHeapId
@@ -538,7 +538,7 @@ HOOK$SETOF          .set 00H
 ;;
 ;; MEM_Obj Buffers (len, iAllocHeap, iSegZero, iHeapId)
 	.global Buffers
-	.asg 01c200H, _len
+	.asg 010000H, _len
 	.asg 00H, _iAllocHeap
 	.asg MEM_NULL, _iSegZero
 	.asg segment_name, _iHeapId
@@ -549,7 +549,7 @@ HOOK$SETOF          .set 00H
 ;;
 ;; MEM_Obj process_mem (len, iAllocHeap, iSegZero, iHeapId)
 	.global process_mem
-	.asg 0400000H, _len
+	.asg 0600000H, _len
 	.asg 00H, _iAllocHeap
 	.asg MEM_NULL, _iSegZero
 	.asg segment_name, _iHeapId
