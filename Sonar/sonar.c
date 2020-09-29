@@ -32,7 +32,8 @@
 
 
 #define SWEEP_LEN 2880		// 60 ms
-#define RESPONSE_LEN 4320   // 60 + 30 ms
+#define RESPONSE_MONO 4320   // 60 + 30 ms
+#define RESPONSE_LEN 8640
 #define FFT_LEN 32768        // next power of 2 for the dit/dif algorithm (complex array => length = 2 x length)
 
 #define PI 3.14159265358979323846
@@ -42,6 +43,8 @@
 
 #pragma DATA_SECTION(Buffer_in, ".processbuffer");
 short Buffer_in[RESPONSE_LEN];
+#pragma DATA_SECTION(Buffer_mono, ".processbuffer");
+short Buffer_mono[RESPONSE_MONO];
 #pragma DATA_SECTION(Buffer_out, ".processbuffer");
 short Buffer_out[SWEEP_LEN];
 /* Memory "Buffers" set to adequate length ( 0x1C200 )*/
@@ -301,11 +304,22 @@ float convert_step_distance(short step) // array index => distance
 }
 
 
+void stereo_to_mono()
+{
+	int i;
+	for(i=0;i<RESPONSE_MONO;i++)
+	{
+		Buffer_mono[i] = Buffer_in[2*i];
+	}
+}
+
+
 short cross_correlation_time()  		// Cross correlation algorithm (time domain), double for-loop
 {
 	short k,m,r_new,r_max;
 	short max_index = 0;
 
+	stereo_to_mono();
 	r_max=0; 							// to compare
 
 	for(k=0;k<SWEEP_LEN;k++)				// For explanations see "cross_correlation.html"
@@ -313,9 +327,9 @@ short cross_correlation_time()  		// Cross correlation algorithm (time domain), 
 		r_new=0;
 
 		/*--------- Cross correlation ----------*/
-		for(m=k;m<RESPONSE_LEN;m++)
+		for(m=k;m<RESPONSE_MONO;m++)
 		{
-			r_new = r_new + Buffer_out[m-k]*Buffer_in[m];  // Cross correlation formula
+			r_new = r_new + Buffer_out[m-k]*Buffer_mono[m];  // Cross correlation formula
 		}
 
 		/*-------- Keeping the maximum ---------*/
@@ -405,6 +419,7 @@ void cfftr2_dit(float* x, float* w, short n)
          }
       }
 
+
 void icfftr2_dif(float* x, float* w, short n)
            {
                short n2, ie, ia, i, j, k, m;
@@ -450,16 +465,30 @@ short cross_correlation_frequency()		// Uses the FFT dit + IFFT dif algorithm (R
 	/* Turn the freq sweep and response arrays into complex arrays ( array[re(a1),im(a1),re(a2),im(a2),...], im = 0 )
 	 and bring them to the right length (next power of 2 = 16384)*/
 
-	for(i=0 ; i < RESPONSE_LEN ; i++)						// sweep_freq and response_freq already right length
+	for(i=0 ; i < FFT_LEN/2 ; i++)						// sweep_freq and response_freq already right length
 	{														// and filled with zeros (see initialisation)
-		if(i < SWEEP_LEN)
+		if(i < RESPONSE_MONO)
 		{
-			sweep_freq[2*i] = (float)Buffer_out[i];			// fills every second value (real parts)
-			sweep_freq[2*i+1]=0;
+			if(i < SWEEP_LEN)
+			{
+				sweep_freq[2*i] = (float)Buffer_out[i]/25000;			// fills every second value (real parts)
+				sweep_freq[2*i+1]=0;
+			}
+			else
+			{
+				sweep_freq[2*i] = 0;
+				sweep_freq[2*i+1]=0;
+			}
+			response_freq[2*i] = (float)Buffer_in[2*i]/25000;
+			response_freq[2*i+1]=0;
 		}
-
-		response_freq[2*i] = (float)Buffer_in[i];
-		response_freq[2*i+1]=0;
+		else
+		{
+			sweep_freq[2*i] = 0;
+			sweep_freq[2*i+1]=0;
+			response_freq[2*i] = 0;
+			response_freq[2*i+1]=0;
+		}
 	}
 
 
@@ -537,7 +566,7 @@ main()
     config_interrupts();
 
     MCBSP_start(hMcbsp, MCBSP_RCV_START | MCBSP_XMIT_START, 0xffffffff);
-    MCBSP_enableRcv(hMcbsp);
+   // MCBSP_enableRcv(hMcbsp);
     MCBSP_write(hMcbsp, 0x0); 	/* one shot */
 
 } /* finished*/
