@@ -3,10 +3,7 @@
 *  														   *
 *  Sonar project for ProKaTim (first release)              *
 *  														   *
-*  Last update : 02.08.2020							   	   *
-*  functions bit_rev and tw_genr2fft added   			   *
-*  + cross_correlation_frequency finished				   *
-*  + AIC23 configuration corrected 						   *
+*  Last update : 29.09.2020							   	   *
 *  														   *
 ************************************************************/
 #include <math.h>
@@ -20,8 +17,6 @@
 #include "config_AIC23.h"
 #include "sonar.h"
 #include "sonarcfg.h"
-//#include <DSPF_sp_cfftr2_dit.h>
-//#include <DSPF_sp_icfftr2_dif.h>
 
 
 /*****************************************************************/
